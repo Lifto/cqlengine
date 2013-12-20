@@ -465,7 +465,13 @@ class BaseModel(object):
             else:
                 setattr(self, self._polymorphic_column_name, self.__polymorphic_key__)
 
-        self.validate()
+        if values:
+            for column_name, value in values.items():
+                column = self._columns[column_name]
+                value = column.validate(value)
+                setattr(self, column_name, value)
+        else:
+            self.validate()
         self.__dmlquery__(self.__class__, self,
                           batch=self._batch,
                           ttl=self._ttl,
