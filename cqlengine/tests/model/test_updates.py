@@ -17,17 +17,37 @@ class TestUpdateModel(Model):
     text        = columns.Text(required=False, index=True)
 
 
+class TestUpdateDefaultModel(Model):
+    partition   = columns.UUID(primary_key=True, default=uuid4)
+    cluster     = columns.UUID(primary_key=True, default=uuid4)
+    count       = columns.Integer(required=False)
+    text        = columns.Text(required=False, index=True)
+    def_text    = columns.Text(default=u'default text')
+
+
+class TestUpdateRequiredModel(Model):
+    partition   = columns.UUID(primary_key=True, default=uuid4)
+    cluster     = columns.UUID(primary_key=True, default=uuid4)
+    count       = columns.Integer(required=False)
+    text        = columns.Text(required=False, index=True)
+    req_text    = columns.Text(required=True)
+
+
 class ModelUpdateTests(BaseCassEngTestCase):
 
     @classmethod
     def setUpClass(cls):
         super(ModelUpdateTests, cls).setUpClass()
         sync_table(TestUpdateModel)
+        sync_table(TestUpdateDefaultModel)
+        sync_table(TestUpdateRequiredModel)
 
     @classmethod
     def tearDownClass(cls):
         super(ModelUpdateTests, cls).tearDownClass()
         drop_table(TestUpdateModel)
+        drop_table(TestUpdateDefaultModel)
+        drop_table(TestUpdateRequiredModel)
 
     def test_update_model(self):
         """ tests calling udpate on models with no values passed in """
@@ -64,6 +84,100 @@ class ModelUpdateTests(BaseCassEngTestCase):
         m2 = TestUpdateModel.get(partition=m0.partition, cluster=m0.cluster)
         self.assertEqual(m2.count, m1.count)
         self.assertEqual(m2.text, m0.text)
+
+    def test_blind_update_default_with_save_syntax(self):
+        """ tests blind update won't clobber existing values with a default """
+        m0 = TestUpdateDefaultModel.create(count=5, text='monkey')
+        partition = m0.partition
+        cluster = m0.cluster
+
+        # independently save over value, unknown to original instance
+        m1 = TestUpdateDefaultModel(partition=partition, cluster=cluster)
+        m1.def_text = u'changed text'
+        m1.save()
+
+        # update the text, and call update.
+        m2 = TestUpdateDefaultModel(partition=partition, cluster=cluster)
+        m2.text = u'monkey land'
+        m2.save()
+
+        # database should reflect both updates
+        m3 = TestUpdateDefaultModel.get(partition=m0.partition, cluster=m0.cluster)
+        self.assertEqual(m3.def_text, u'changed text')
+        self.assertEqual(m3.text, u'monkey land')
+
+    def test_blind_update_default_with_other_update_syntax(self):
+        """ tests blind update won't clobber existing values with a default """
+        m0 = TestUpdateDefaultModel.create(count=5, text='monkey')
+        partition = m0.partition
+        cluster = m0.cluster
+
+        # independently save over value, unknown to original instance
+        m1 = TestUpdateDefaultModel(partition=partition, cluster=cluster)
+        m1.def_text = u'changed text'
+        m1.save()
+
+        # update the text, and call update.
+        m2 = TestUpdateDefaultModel(partition=partition, cluster=cluster)
+        m2.text = u'monkey land'
+        m2.update()
+
+        # database should reflect both updates
+        m3 = TestUpdateDefaultModel.get(partition=m0.partition, cluster=m0.cluster)
+        self.assertEqual(m3.def_text, u'changed text')
+        self.assertEqual(m3.text, u'monkey land')
+
+    def test_blind_update_default_with_update_syntax(self):
+        """ tests blind update won't clobber existing values with a default """
+        m0 = TestUpdateDefaultModel.create(count=5, text='monkey')
+        partition = m0.partition
+        cluster = m0.cluster
+
+        # independently save over value, unknown to original instance
+        m1 = TestUpdateDefaultModel(partition=partition, cluster=cluster)
+        m1.def_text = u'changed text'
+        m1.save()
+
+        # update the text, and call update.
+        m2 = TestUpdateDefaultModel(partition=partition, cluster=cluster)
+        m2.update(text=u'monkey land')
+
+        # database should reflect both updates
+        m3 = TestUpdateDefaultModel.get(partition=m0.partition, cluster=m0.cluster)
+        self.assertEqual(m3.def_text, u'changed text')
+        self.assertEqual(m3.text, u'monkey land')
+
+    def test_blind_update_required_save_syntax(self):
+        """ tests blind update won't complain about required values """
+        m0 = TestUpdateRequiredModel.create(count=5, text='monkey', req_text='rt')
+        partition = m0.partition
+        cluster = m0.cluster
+
+        # Do a blind update that does not include a required column.
+        m1 = TestUpdateRequiredModel(partition=partition, cluster=cluster)
+        m1.text = u'monkey land'
+        m1.save()
+
+    def test_blind_update_required_other_update_syntax(self):
+        """ tests blind update won't complain about required values """
+        m0 = TestUpdateRequiredModel.create(count=5, text='monkey', req_text='rt')
+        partition = m0.partition
+        cluster = m0.cluster
+
+        # Do a blind update that does not include a required column.
+        m1 = TestUpdateRequiredModel(partition=partition, cluster=cluster)
+        m1.text = u'monkey land'
+        m1.update()
+
+    def test_blind_update_required_update_syntax(self):
+        """ tests blind update won't complain about required values """
+        m0 = TestUpdateRequiredModel.create(count=5, text='monkey', req_text='rt')
+        partition = m0.partition
+        cluster = m0.cluster
+
+        # Do a blind update that does not include a required column.
+        m1 = TestUpdateRequiredModel(partition=partition, cluster=cluster)
+        m1.update(text=u'monkey land')
 
     def test_noop_model_update(self):
         """ tests that calling update on a model with no changes will do nothing. """
