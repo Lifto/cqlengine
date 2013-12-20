@@ -106,6 +106,27 @@ class ModelUpdateTests(BaseCassEngTestCase):
         self.assertEqual(m3.def_text, u'changed text')
         self.assertEqual(m3.text, u'monkey land')
 
+    def test_blind_update_default_with_other_update_syntax(self):
+        """ tests blind update won't clobber existing values with a default """
+        m0 = TestUpdateDefaultModel.create(count=5, text='monkey')
+        partition = m0.partition
+        cluster = m0.cluster
+
+        # independently save over value, unknown to original instance
+        m1 = TestUpdateDefaultModel(partition=partition, cluster=cluster)
+        m1.def_text = u'changed text'
+        m1.save()
+
+        # update the text, and call update.
+        m2 = TestUpdateDefaultModel(partition=partition, cluster=cluster)
+        m2.text = u'monkey land'
+        m2.update()
+
+        # database should reflect both updates
+        m3 = TestUpdateDefaultModel.get(partition=m0.partition, cluster=m0.cluster)
+        self.assertEqual(m3.def_text, u'changed text')
+        self.assertEqual(m3.text, u'monkey land')
+
     def test_blind_update_default_with_update_syntax(self):
         """ tests blind update won't clobber existing values with a default """
         m0 = TestUpdateDefaultModel.create(count=5, text='monkey')
@@ -136,6 +157,17 @@ class ModelUpdateTests(BaseCassEngTestCase):
         m1 = TestUpdateRequiredModel(partition=partition, cluster=cluster)
         m1.text = u'monkey land'
         m1.save()
+
+    def test_blind_update_required_other_update_syntax(self):
+        """ tests blind update won't complain about required values """
+        m0 = TestUpdateRequiredModel.create(count=5, text='monkey', req_text='rt')
+        partition = m0.partition
+        cluster = m0.cluster
+
+        # Do a blind update that does not include a required column.
+        m1 = TestUpdateRequiredModel(partition=partition, cluster=cluster)
+        m1.text = u'monkey land'
+        m1.update()
 
     def test_blind_update_required_update_syntax(self):
         """ tests blind update won't complain about required values """
