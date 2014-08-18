@@ -6,6 +6,7 @@ from collections import namedtuple
 from cassandra.cluster import Cluster, NoHostAvailable
 from cassandra.policies import HostDistance
 from cassandra.query import SimpleStatement, Statement
+import six
 
 try:
     import Queue as queue
@@ -51,6 +52,8 @@ def setup(
     :type consistency: int
     :param lazy_connect: True if should not connect until first use
     :type lazy_connect: bool
+    :param retry_connect: bool
+    :param retry_connect: True if we should retry to connect even if there was a connection failure initially
     :param skip_schema_loading: True if should not load schema after connect. Will make connects faster. Will break prepared statements, and if you make a schema change, you won't properly wait for schema agreement.
     :type skip_schema_loading: bool
     :param one_core_connection: True if only one connection per host instead of 2
@@ -111,8 +114,10 @@ def execute(query, params=None, consistency_level=None):
         query = str(query)
         query = SimpleStatement(query, consistency_level=consistency_level)
 
-    elif isinstance(query, basestring):
+    elif isinstance(query, six.string_types):
         query = SimpleStatement(query, consistency_level=consistency_level)
+
+    LOG.info(query.query_string)
 
     params = params or {}
     result = session.execute(query, params)

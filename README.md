@@ -1,13 +1,17 @@
 cqlengine
 ===============
 
+![cqlengine build status](https://travis-ci.org/cqlengine/cqlengine.svg?branch=master)
+![cqlengine pypi version](http://img.shields.io/pypi/v/cqlengine.svg)
+![cqlengine monthly downloads](http://img.shields.io/pypi/dm/cqlengine.svg)
+
 cqlengine is a Cassandra CQL 3 Object Mapper for Python
 
 **Users of versions < 0.16, the default keyspace 'cqlengine' has been removed. Please read this before upgrading:** [Breaking Changes](https://cqlengine.readthedocs.org/en/latest/topics/models.html#keyspace-change)
 
 [Documentation](https://cqlengine.readthedocs.org/en/latest/)
 
-[Report a Bug](https://github.com/bdeggleston/cqlengine/issues)
+[Report a Bug](https://github.com/cqlengine/cqlengine/issues)
 
 [Users Mailing List](https://groups.google.com/forum/?fromgroups#!forum/cqlengine-users)
 
@@ -31,12 +35,12 @@ class ExampleModel(Model):
     created_at      = columns.DateTime()
     description     = columns.Text(required=False)
 
-#next, setup the connection to your cassandra server(s)...
+#next, setup the connection to your cassandra server(s) and the default keyspace...
 >>> from cqlengine import connection
->>> connection.setup(['127.0.0.1'])
+>>> connection.setup(['127.0.0.1'], "cqlengine")
 
 # or if you're still on cassandra 1.2
->>> connection.setup(['127.0.0.1'], protocol_version=1)
+>>> connection.setup(['127.0.0.1'], "cqlengine", protocol_version=1)
 
 #...and create your CQL table
 >>> from cqlengine.management import sync_table
@@ -80,3 +84,9 @@ example5
 ## Contributing
 
 If you'd like to contribute to cqlengine, please read the [contributor guidelines](https://github.com/bdeggleston/cqlengine/blob/master/CONTRIBUTING.md)
+
+
+## Authors
+
+cqlengine was developed primarily by (Blake Eggleston)[blakeeggleston](https://twitter.com/blakeeggleston) and [Jon Haddad](https://twitter.com/rustyrazorblade), with contributions from several others in the community.
+

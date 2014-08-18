@@ -12,8 +12,8 @@ Models
 
 A model is a python class representing a CQL table.
 
-Example
-=======
+Examples
+========
 
 This example defines a Person table, with the columns ``first_name`` and ``last_name``
 
@@ -23,6 +23,7 @@ This example defines a Person table, with the columns ``first_name`` and ``last_
     from cqlengine.models import Model
 
     class Person(Model):
+        id = columns.UUID(primary_key=True)
         first_name  = columns.Text()
         last_name = columns.Text()
 
@@ -37,6 +38,38 @@ The Person model would create this CQL table:
        last_name text,
        PRIMARY KEY (id)
    )
+
+Here's an example of a comment table created with clustering keys, in descending order:
+
+.. code-block:: python
+
+    from cqlengine import columns
+    from cqlengine.models import Model
+
+    class Comment(Model):
+        photo_id = columns.UUID(primary_key=True)
+        comment_id = columns.TimeUUID(primary_key=True, clustering_order="DESC")
+        comment = columns.Text()
+
+The Comment model's ``create table`` would look like the following:
+
+.. code-block:: sql
+
+    CREATE TABLE comment (
+      photo_id uuid,
+      comment_id timeuuid,
+      comment text,
+      PRIMARY KEY (photo_id, comment_id)
+    ) WITH CLUSTERING ORDER BY (comment_id DESC)
+
+To sync the models to the database, you may do the following:
+
+.. code-block:: python
+
+    from cqlengine.management import sync_table
+    sync_table(Person)
+    sync_table(Comment)
+
 
 Columns
 =======
@@ -54,6 +87,7 @@ Column Types
     * :class:`~cqlengine.columns.Ascii`
     * :class:`~cqlengine.columns.Text`
     * :class:`~cqlengine.columns.Integer`
+    * :class:`~cqlengine.columns.BigInt`
     * :class:`~cqlengine.columns.DateTime`
     * :class:`~cqlengine.columns.UUID`
     * :class:`~cqlengine.columns.TimeUUID`
@@ -81,6 +115,9 @@ Column Options
         If True, this column is created as partition primary key. There may be many partition keys defined,
         forming a *composite partition key*
 
+    :attr:`~cqlengine.columns.BaseColumn.clustering_order`
+        ``ASC`` or ``DESC``, determines the clustering order of a clustering key.
+
     :attr:`~cqlengine.columns.BaseColumn.index`
         If True, an index will be created for this column. Defaults to False.
 
@@ -96,6 +133,9 @@ Column Options
     :attr:`~cqlengine.columns.BaseColumn.required`
         If True, this model cannot be saved without a value defined for this column. Defaults to False. Primary key fields always require values.
 
+    :attr:`~cqlengine.columns.BaseColumn.static`
+        Defined a column as static.  Static columns are shared by all rows in a partition.
+
 Model Methods
 =============
     Below are the methods that can be called on model instances.
@@ -110,6 +150,7 @@ Model Methods
 
         #using the person model from earlier:
         class Person(Model):
+            id = columns.UUID(primary_key=True)
             first_name  = columns.Text()
             last_name = columns.Text()
 
@@ -154,6 +195,8 @@ Model Methods
         fields. If no fields on the model have been modified since loading, no query will be
         performed. Model validation is performed normally.
 
+        It is possible to do a blind update, that is, to update a field without having first selected the object out of the database.  See :ref:`Blind Updates <blind_updates>`
+
     .. method:: get_changed_columns()
 
         Returns a list of column names that have changed since the model was instantiated or saved
@@ -176,6 +219,11 @@ Model Attributes
 
         **Prior to cqlengine 0.16, this setting defaulted
         to 'cqlengine'. As of 0.16, this field needs to be set on all non-abstract models, or their base classes.**
+
+    .. _ttl-change:
+    .. attribute:: Model.__default_ttl__
+
+        Sets the default ttl used by this model.  This can be overridden by using the ``ttl(ttl_in_sec)`` method.
 
 
 Table Polymorphism
@@ -296,11 +344,11 @@ Table Properties
 
     .. code-block:: python
 
-        from cqlengine import ROWS_ONLY, columns
+        from cqlengine import CACHING_ROWS_ONLY, columns
         from cqlengine.models import Model
 
         class User(Model):
-            __caching__ = ROWS_ONLY  # cache only rows instead of keys only by default
+            __caching__ = CACHING_ROWS_ONLY  # cache only rows instead of keys only by default
             __gc_grace_seconds__ = 86400  # 1 day instead of the default 10 days
 
             user_id = columns.UUID(primary_key=True)

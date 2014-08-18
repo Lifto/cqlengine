@@ -285,6 +285,8 @@ Batch Queries
 
     cqlengine now supports batch queries using the BatchQuery class. Batch queries can be started and stopped manually, or within a context manager. To add queries to the batch object, you just need to precede the create/save/delete call with a call to batch, and pass in the batch object.
 
+
+
 Batch Query General Use Pattern
 -------------------------------
 
@@ -375,6 +377,18 @@ Batch Query Execution Callbacks
     Failure in any of the callbacks does not affect the batch's execution, as the callbacks are started after the execution
     of the batch is complete.
 
+Logged vs Unlogged Batches
+---------------------------
+    By default, queries in cqlengine are LOGGED, which carries additional overhead from UNLOGGED.  To explicitly state which batch type to use, simply:
+
+
+    .. code-block:: python
+
+        from cqlengine.query import BatchType
+        with BatchQuery(batch_type=BatchType.Unlogged) as b:
+            LogEntry.batch(b).create(k=1, v=1)
+            LogEntry.batch(b).create(k=1, v=2)
+
 
 
 QuerySet method reference
@@ -386,6 +400,12 @@ QuerySet method reference
 
         Returns a queryset matching all rows
 
+        .. code-block:: python
+
+            for user in User.objects().all():
+                print(user)
+
+
     .. method:: batch(batch_object)
 
         Sets the batch object to run the query on. Note that running a select query with a batch object will raise an exception
@@ -394,10 +414,19 @@ QuerySet method reference
 
         Sets the consistency level for the operation.  Options may be imported from the top level :attr:`cqlengine` package.
 
+        .. code-block:: python
+
+            for user in User.objects(id=3).consistency(ONE):
+                print(user)
+
 
     .. method:: count()
 
         Returns the number of matching rows in your QuerySet
+
+        .. code-block:: python
+
+            print(User.objects().count())
 
     .. method:: filter(\*\*values)
 
@@ -411,11 +440,21 @@ QuerySet method reference
 
         Returns a single object matching the QuerySet. If no objects are matched, a :attr:`~models.Model.DoesNotExist` exception is raised. If more than one object is found, a :attr:`~models.Model.MultipleObjectsReturned` exception is raised.
 
+        .. code-block:: python
+
+            user = User.get(id=1)
+
+
     .. method:: limit(num)
 
         Limits the number of results returned by Cassandra.
 
         *Note that CQL's default limit is 10,000, so all queries without a limit set explicitly will have an implicit limit of 10,000*
+
+        .. code-block:: python
+
+            for user in User.objects().limit(100):
+                print(user)
 
     .. method:: order_by(field_name)
 
@@ -423,6 +462,30 @@ QuerySet method reference
         :type field_name: string
 
         Sets the field to order on.
+
+        .. code-block:: python
+
+            from uuid import uuid1,uuid4
+
+            class Comment(Model):
+                photo_id = UUID(primary_key=True)
+                comment_id = TimeUUID(primary_key=True, default=uuid1) # auto becomes clustering key
+                comment = Text()
+
+            sync_table(Comment)
+
+            u = uuid4()
+            for x in range(5):
+                Comment.create(photo_id=u, comment="test %d" % x)
+
+            print("Normal")
+            for comment in Comment.objects(photo_id=u):
+                print comment.comment_id
+
+            print("Reversed")
+            for comment in Comment.objects(photo_id=u).order_by("-comment_id"):
+                print comment.comment_id
+
 
     .. method:: allow_filtering()
 
@@ -439,17 +502,39 @@ QuerySet method reference
 
         Sets the ttl to run the query query with. Note that running a select query with a ttl value will raise an exception
 
+    .. _blind_updates:
+
     .. method:: update(**values)
 
         Performs an update on the row selected by the queryset. Include values to update in the
         update like so:
 
         .. code-block:: python
+
             Model.objects(key=n).update(value='x')
 
         Passing in updates for columns which are not part of the model will raise a ValidationError.
         Per column validation will be performed, but instance level validation will not
-        (`Model.validate` is not called).
+        (`Model.validate` is not called).  This is sometimes referred to as a blind update.
+
+        For example:
+
+        .. code-block:: python
+
+            class User(Model):
+                id = Integer(primary_key=True)
+                name = Text()
+
+            setup(["localhost"], "test")
+            sync_table(User)
+
+            u = User.create(id=1, name="jon")
+
+            User.objects(id=1).update(name="Steve")
+
+            # sets name to null
+            User.objects(id=1).update(name=None)
+
 
         The queryset update method also supports blindly adding and removing elements from container columns, without
         loading a model instance from Cassandra.
